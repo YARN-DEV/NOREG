@@ -1,0 +1,27 @@
+[
+  {
+    "id": "1",
+    "title": "Learn JavaScript Quickly",
+    "author": "A. Developer",
+    "price": 9.99,
+    "image": "https://via.placeholder.com/400x600/FFD700/000000?text=Learn+JavaScript+Quickly",
+    "description": "A concise guide to JavaScript for beginners and experienced developers."
+  },
+  {
+    "id": "2",
+    "title": "Mastering React",
+    "author": "B. Coder",
+    "price": 14.99,
+    "image": "https://via.placeholder.com/400x600/61DAFB/000000?text=Mastering+React",
+    "description": "Deep dive into building scalable React applications."
+  }
+ ,
+  {
+    "id": "3",
+    "title": "Premium eBook Bundle",
+    "author": "YARN-DEV",
+    "price": 100.00,
+    "image": "https://via.placeholder.com/400x600/000000/ffffff?text=Premium+Bundle",
+    "description": "A premium bundle of top-selling ebooks — instant downloads, exclusive content, and bundled savings."
+  }
+]
