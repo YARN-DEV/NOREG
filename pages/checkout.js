@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useCart } from '../context/CartContext'
 import { useRouter } from 'next/router'
+import Head from 'next/head'
 
 export default function CheckoutPage() {
   const { items, clearCart, isLoaded } = useCart()
   const [loading, setLoading] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('stripe') // 'stripe', 'square-hosted', 'square-embedded'
+  const [squarePayments, setSquarePayments] = useState(null)
+  const [card, setCard] = useState(null)
   const [customerInfo, setCustomerInfo] = useState({
     email: '',
     firstName: '',
@@ -28,6 +32,98 @@ export default function CheckoutPage() {
       router.push('/cart')
     }
   }, [items, router, isLoaded])
+
+  // Initialize Square Web Payments SDK when embedded payment is selected
+  useEffect(() => {
+    if (paymentMethod === 'square-embedded' && typeof window !== 'undefined') {
+      initializeSquarePayments()
+    }
+  }, [paymentMethod])
+
+  const initializeSquarePayments = async () => {
+    try {
+      if (!window.Square) {
+        console.error('Square Web Payments SDK not loaded')
+        return
+      }
+
+      const payments = window.Square.payments(process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID, process.env.SQUARE_LOCATION_ID)
+      setSquarePayments(payments)
+
+      const cardOptions = {
+        style: {
+          input: {
+            fontSize: '16px',
+            fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial'
+          }
+        }
+      }
+
+      const cardElement = await payments.card(cardOptions)
+      await cardElement.attach('#card-container')
+      setCard(cardElement)
+
+      // Set up card button click handler
+      const cardButton = document.getElementById('card-button')
+      if (cardButton) {
+        cardButton.onclick = handleSquareCardPayment
+      }
+
+    } catch (error) {
+      console.error('Failed to initialize Square payments:', error)
+    }
+  }
+
+  const handleSquareCardPayment = async () => {
+    if (!validateForm()) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    if (!card) {
+      alert('Payment form not ready. Please try again.')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const tokenResult = await card.tokenize()
+      
+      if (tokenResult.status === 'OK') {
+        // Process payment with token
+        const response = await fetch('/api/square-web-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            paymentToken: tokenResult.token,
+            items,
+            customerInfo,
+            total
+          })
+        })
+
+        const result = await response.json()
+
+        if (response.ok && result.success) {
+          // Payment successful, redirect to success page
+          clearCart()
+          router.push(`/success?payment_id=${result.paymentId}`)
+        } else {
+          throw new Error(result.error || 'Payment failed')
+        }
+      } else {
+        throw new Error(tokenResult.errors?.[0]?.detail || 'Failed to process card')
+      }
+    } catch (error) {
+      console.error('Square card payment error:', error)
+      alert(`Payment failed: ${error.message}. Please try again.`)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInputChange = (e) => {
     setCustomerInfo({
@@ -60,7 +156,13 @@ export default function CheckoutPage() {
         total
       }
 
-      const response = await fetch('/api/create-checkout-session', {
+      let apiEndpoint = '/api/create-checkout-session' // Default to Stripe
+      
+      if (paymentMethod === 'square-hosted') {
+        apiEndpoint = '/api/create-square-checkout'
+      }
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,7 +173,7 @@ export default function CheckoutPage() {
       const session = await response.json()
 
       if (response.ok && session.url) {
-        // Redirect to Stripe checkout
+        // Redirect to payment page (Stripe or Square)
         window.location.href = session.url
       } else {
         throw new Error(session.error || 'Failed to create checkout session')
@@ -108,6 +210,9 @@ export default function CheckoutPage() {
 
   return (
     <Layout>
+      <Head>
+        <script src="https://sandbox.web.squarecdn.com/v1/square.js"></script>
+      </Head>
       <div className="checkout-container">
         <h1>Checkout</h1>
         
@@ -148,6 +253,44 @@ export default function CheckoutPage() {
           {/* Customer Information Form */}
           <div className="customer-form">
             <h2>Customer Information</h2>
+            
+            {/* Payment Method Selection */}
+            <div className="payment-method-selection">
+              <h3>Choose Payment Method</h3>
+              <div className="payment-options">
+                <label className="payment-option">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="stripe"
+                    checked={paymentMethod === 'stripe'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  />
+                  <span>Stripe (Credit Card)</span>
+                </label>
+                <label className="payment-option">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="square-hosted"
+                    checked={paymentMethod === 'square-hosted'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  />
+                  <span>Square (Hosted Checkout)</span>
+                </label>
+                <label className="payment-option">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="square-embedded"
+                    checked={paymentMethod === 'square-embedded'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  />
+                  <span>Square (Credit Card - Embedded)</span>
+                </label>
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit}>
               <div className="form-row">
                 <div className="form-group">
@@ -256,12 +399,31 @@ export default function CheckoutPage() {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={loading}
+                  disabled={loading || paymentMethod === 'square-embedded'}
                   className="btn-primary"
+                  style={{ display: paymentMethod === 'square-embedded' ? 'none' : 'block' }}
                 >
-                  {loading ? 'Processing...' : `Pay $${total.toFixed(2)}`}
+                  {loading ? 'Processing...' : 
+                   paymentMethod === 'square-hosted' ? `Pay with Square $${total.toFixed(2)}` :
+                   `Pay with Stripe $${total.toFixed(2)}`}
                 </button>
               </div>
+              
+              {/* Square Web Payments SDK Embedded Form */}
+              {paymentMethod === 'square-embedded' && (
+                <div className="square-embedded-payment">
+                  <h3>Pay with Credit Card</h3>
+                  <div id="card-container"></div>
+                  <button 
+                    type="button"
+                    id="card-button"
+                    className="btn-primary"
+                    disabled={loading}
+                  >
+                    {loading ? 'Processing...' : `Pay $${total.toFixed(2)}`}
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
