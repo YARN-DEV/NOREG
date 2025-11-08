@@ -7,7 +7,7 @@ import Head from 'next/head'
 export default function CheckoutPage() {
   const { items, clearCart, isLoaded } = useCart()
   const [loading, setLoading] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('stripe') // 'stripe', 'square-hosted', 'square-embedded'
+  const [paymentMethod, setPaymentMethod] = useState('stripe') // 'stripe', 'square'
   const [squarePayments, setSquarePayments] = useState(null)
   const [card, setCard] = useState(null)
   const [customerInfo, setCustomerInfo] = useState({

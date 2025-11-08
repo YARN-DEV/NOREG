@@ -1,5 +1,3 @@
-import { SquareClient, SquareEnvironment } from 'square'
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -11,7 +9,7 @@ export default async function handler(req, res) {
 
   if (!squareAccessToken || !squareLocationId) {
     return res.status(500).json({ 
-      error: 'Square configuration missing. Please add SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID to your environment variables.'
+      error: 'Square configuration missing'
     })
   }
 
@@ -22,91 +20,55 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No items in cart' })
     }
 
-    // Initialize Square client
-    const client = new SquareClient({
-      accessToken: squareAccessToken,
-      environment: squareEnvironment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
-    })
+    // Use Square REST API directly
+    const baseUrl = squareEnvironment === 'production' 
+      ? 'https://connect.squareup.com' 
+      : 'https://connect.squareupsandbox.com'
 
-    // Create checkout request
-    const checkoutRequest = {
-      idempotencyKey: require('crypto').randomUUID(),
-      askForShippingAddress: false,
-      merchantSupportEmail: customerInfo.email || 'support@yourstore.com',
-      prePopulatedData: {
-        buyerEmail: customerInfo.email || '',
-        buyerPhoneNumber: customerInfo.phone || ''
-      },
-      redirectUrl: `${req.headers.origin}/success`,
-      order: {
-        locationId: squareLocationId,
-        lineItems: items.map(item => ({
-          name: item.title,
-          quantity: item.quantity.toString(),
-          basePriceMoney: {
-            amount: Math.round(item.price * 100),
-            currency: 'USD'
-          }
-        }))
-      }
-    }
-
-    // Create order first, then payment link
-    const orderRequest = {
-      idempotencyKey: require('crypto').randomUUID(),
-      order: {
-        locationId: squareLocationId,
-        lineItems: items.map(item => ({
-          name: item.title,
-          quantity: item.quantity.toString(),
-          basePriceMoney: {
-            amount: Math.round(item.price * 100),
-            currency: 'USD'
-          }
-        }))
-      }
-    }
-
-    // Create order
-    const { result: orderResult } = await client.ordersApi.createOrder(orderRequest)
-    
-    if (!orderResult || !orderResult.order) {
-      throw new Error('Failed to create order')
-    }
-
-    // Create payment link
-    const paymentLinkRequest = {
-      idempotencyKey: require('crypto').randomUUID(),
-      quickPay: {
+    // Create payment link using REST API
+    const paymentLinkData = {
+      idempotency_key: require('crypto').randomUUID(),
+      quick_pay: {
         name: 'eBook Store Purchase',
-        priceMoney: {
+        price_money: {
           amount: Math.round(total * 100),
           currency: 'USD'
         },
-        locationId: squareLocationId
+        location_id: squareLocationId
       },
-      checkoutOptions: {
-        askForShippingAddress: false,
-        allowTipping: false,
-        redirectUrl: `${req.headers.origin}/success`,
-        merchantSupportEmail: customerInfo.email || 'support@yourstore.com'
+      checkout_options: {
+        ask_for_shipping_address: false,
+        allow_tipping: false,
+        redirect_url: `${req.headers.origin}/success`,
+        merchant_support_email: customerInfo.email || 'support@yourstore.com'
       },
-      prePopulatedData: {
-        buyerEmail: customerInfo.email || '',
-        buyerPhoneNumber: customerInfo.phone || ''
+      pre_populated_data: {
+        buyer_email: customerInfo.email || '',
+        buyer_phone_number: customerInfo.phone || ''
       }
     }
 
-    const { result } = await client.checkoutApi.createPaymentLink(paymentLinkRequest)
+    const response = await fetch(`${baseUrl}/v2/online-checkout/payment-links`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${squareAccessToken}`,
+        'Content-Type': 'application/json',
+        'Square-Version': '2023-10-18'
+      },
+      body: JSON.stringify(paymentLinkData)
+    })
 
-    if (result && result.paymentLink) {
+    const result = await response.json()
+
+    if (response.ok && result.payment_link) {
       res.status(200).json({ 
-        url: result.paymentLink.url
+        url: result.payment_link.url
       })
     } else {
+      console.error('Square API Error:', result)
       res.status(500).json({ 
         error: 'Failed to create Square payment link',
-        details: result?.errors || 'Unknown error'
+        details: result.errors || 'Unknown error'
       })
     }
 
