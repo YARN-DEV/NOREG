@@ -28,55 +28,13 @@ export default async function handler(req, res) {
       environment: squareEnvironment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
     })
 
-    const { ordersApi, checkoutApi } = client
-
-    // Create line items for Square (amounts in cents)
-    const orderLineItems = items.map(item => ({
-      name: item.title,
-      quantity: item.quantity.toString(),
-      basePriceMoney: {
-        amount: Math.round(item.price * 100), // Convert to cents
-        currency: 'USD'
-      }
-    }))
-
-    // Add tax as separate line item if applicable
-    if (tax > 0) {
-      orderLineItems.push({
-        name: 'Tax',
-        quantity: '1',
-        basePriceMoney: {
-          amount: Math.round(tax * 100),
-          currency: 'USD'
-        }
-      })
-    }
-
-    // First create an order
-    const orderRequest = {
-      idempotencyKey: require('crypto').randomUUID(),
-      order: {
-        locationId: squareLocationId,
-        lineItems: orderLineItems
-      }
-    }
-
-    console.log('Creating Square order:', JSON.stringify(orderRequest, null, 2))
-
-    // Create order first
-    const { result: orderResult } = await ordersApi.createOrder(orderRequest)
-    
-    if (!orderResult || !orderResult.order) {
-      throw new Error('Failed to create Square order')
-    }
-
-    // Now create payment link for the order
+    // Use the simpler payment link approach without creating order first
     const paymentLinkRequest = {
       idempotencyKey: require('crypto').randomUUID(),
       quickPay: {
-        name: `Order ${orderResult.order.id}`,
+        name: `eBook Store Purchase`,
         priceMoney: {
-          amount: Math.round(total * 100),
+          amount: Math.round(total * 100), // Convert to cents
           currency: 'USD'
         },
         locationId: squareLocationId
@@ -84,8 +42,6 @@ export default async function handler(req, res) {
       checkoutOptions: {
         askForShippingAddress: false,
         allowTipping: false,
-        customFields: [],
-        subscriptionPlanId: null,
         redirectUrl: `${req.headers.origin}/success`,
         merchantSupportEmail: customerInfo.email || 'support@yourstore.com'
       },
@@ -97,7 +53,7 @@ export default async function handler(req, res) {
 
     console.log('Creating Square payment link:', JSON.stringify(paymentLinkRequest, null, 2))
 
-    // Create payment link
+    // Create payment link directly
     const { result } = await client.checkoutApi.createPaymentLink(paymentLinkRequest)
 
     if (result && result.paymentLink) {
@@ -121,9 +77,15 @@ export default async function handler(req, res) {
       errorMessage = `Square error: ${error.message}`
     }
     
+    // Check if it's an API structure issue
+    if (error.message && error.message.includes('Cannot read properties of undefined')) {
+      errorMessage = 'Square API client not properly initialized. Please check your Square credentials.'
+    }
+    
     res.status(500).json({ 
       error: errorMessage,
-      details: error.message
+      details: error.message,
+      stack: error.stack
     })
   }
 }
