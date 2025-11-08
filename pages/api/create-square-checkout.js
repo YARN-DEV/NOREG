@@ -9,72 +9,67 @@ export default async function handler(req, res) {
 
   if (!squareAccessToken || !squareLocationId) {
     return res.status(500).json({ 
-      error: 'Square configuration missing'
+      error: 'Square configuration missing' 
     })
   }
 
   try {
-    const { items, customerInfo, subtotal, tax, total } = req.body
+    const { items, customerInfo, total } = req.body
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'No items in cart' })
     }
 
-    // Use Square's simpler checkout API
+    // Use Square's Payment Links API (newer and more reliable)
     const baseUrl = squareEnvironment === 'production' 
       ? 'https://connect.squareup.com' 
       : 'https://connect.squareupsandbox.com'
 
-    // Create direct checkout with items
-    const checkoutData = {
+    const paymentLinkData = {
       idempotency_key: require('crypto').randomUUID(),
-      ask_for_shipping_address: false,
-      merchant_support_email: customerInfo.email || 'support@yourstore.com',
-      pre_populated_data: {
-        buyer_email: customerInfo.email || '',
-        buyer_phone_number: customerInfo.phone || ''
+      description: `NOREG eBook Store - ${items.map(item => item.title).join(', ')}`,
+      quick_pay: {
+        pricing_type: 'FIXED_PRICING',
+        price_money: {
+          amount: Math.round(total * 100), // Convert to cents
+          currency: 'USD'
+        },
+        location_id: squareLocationId
       },
-      redirect_url: `${req.headers.origin}/success`,
-      order: {
-        location_id: squareLocationId,
-        line_items: items.map(item => ({
-          name: item.title,
-          quantity: item.quantity.toString(),
-          base_price_money: {
-            amount: Math.round(item.price * 100),
-            currency: 'USD'
-          }
-        }))
+      checkout_options: {
+        redirect_url: `${req.headers.origin}/success`,
+        ask_for_shipping_address: false
       }
     }
 
-    const response = await fetch(`${baseUrl}/v2/locations/${squareLocationId}/checkouts`, {
+    const response = await fetch(`${baseUrl}/v2/online-checkout/payment-links`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${squareAccessToken}`,
         'Content-Type': 'application/json',
         'Square-Version': '2023-10-18'
       },
-      body: JSON.stringify(checkoutData)
+      body: JSON.stringify(paymentLinkData)
     })
 
     const result = await response.json()
 
-    if (response.ok && result.checkout) {
+    if (response.ok && result.payment_link) {
       res.status(200).json({ 
-        url: result.checkout.checkout_page_url
+        url: result.payment_link.url
       })
     } else {
+      console.error('Square API Error:', result)
       res.status(500).json({ 
-        error: 'Square checkout failed'
+        error: 'Square payment link creation failed',
+        details: result.errors || result.message || 'Unknown error'
       })
     }
 
   } catch (error) {
-    console.error('Square checkout error:', error)
+    console.error('Square payment error:', error)
     res.status(500).json({ 
-      error: `Square error: ${error.message}`,
-      details: error.message
+      error: `Square error: ${error.message}`
     })
   }
 }

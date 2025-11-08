@@ -11,14 +11,10 @@ export default function SuccessPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (sessionId) {
-      // Clear the cart on successful payment
-      clearCart()
-      
-      // Fetch session details (optional)
-      fetchSessionData(sessionId)
-    }
-  }, [sessionId, clearCart])
+    // Always clear the cart on success page
+    clearCart()
+    setLoading(false)
+  }, [clearCart])
 
   const fetchSessionData = async (sessionId) => {
     try {
