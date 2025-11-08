@@ -20,55 +20,77 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No items in cart' })
     }
 
-    // Use Square REST API directly
+    // Create a simple Square hosted checkout using the correct API
     const baseUrl = squareEnvironment === 'production' 
       ? 'https://connect.squareup.com' 
       : 'https://connect.squareupsandbox.com'
 
-    // Create payment link using REST API
-    const paymentLinkData = {
+    // Create order first
+    const orderData = {
       idempotency_key: require('crypto').randomUUID(),
-      quick_pay: {
-        name: 'eBook Store Purchase',
-        price_money: {
-          amount: Math.round(total * 100),
-          currency: 'USD'
-        },
-        location_id: squareLocationId
-      },
-      checkout_options: {
-        ask_for_shipping_address: false,
-        allow_tipping: false,
-        redirect_url: `${req.headers.origin}/success`,
-        merchant_support_email: customerInfo.email || 'support@yourstore.com'
-      },
-      pre_populated_data: {
-        buyer_email: customerInfo.email || '',
-        buyer_phone_number: customerInfo.phone || ''
+      order: {
+        location_id: squareLocationId,
+        line_items: items.map(item => ({
+          name: item.title,
+          quantity: item.quantity.toString(),
+          base_price_money: {
+            amount: Math.round(item.price * 100),
+            currency: 'USD'
+          }
+        }))
       }
     }
 
-    const response = await fetch(`${baseUrl}/v2/online-checkout/payment-links`, {
+    const orderResponse = await fetch(`${baseUrl}/v2/orders`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${squareAccessToken}`,
         'Content-Type': 'application/json',
         'Square-Version': '2023-10-18'
       },
-      body: JSON.stringify(paymentLinkData)
+      body: JSON.stringify(orderData)
     })
 
-    const result = await response.json()
+    if (!orderResponse.ok) {
+      throw new Error('Failed to create order')
+    }
 
-    if (response.ok && result.payment_link) {
+    const orderResult = await orderResponse.json()
+    
+    // Create checkout session
+    const checkoutData = {
+      idempotency_key: require('crypto').randomUUID(),
+      ask_for_shipping_address: false,
+      merchant_support_email: customerInfo.email || 'support@yourstore.com',
+      pre_populated_data: {
+        buyer_email: customerInfo.email || '',
+        buyer_phone_number: customerInfo.phone || ''
+      },
+      redirect_url: `${req.headers.origin}/success`,
+      order: {
+        order: orderResult.order
+      }
+    }
+
+    const checkoutResponse = await fetch(`${baseUrl}/v2/locations/${squareLocationId}/checkouts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${squareAccessToken}`,
+        'Content-Type': 'application/json',
+        'Square-Version': '2023-10-18'
+      },
+      body: JSON.stringify(checkoutData)
+    })
+
+    const checkoutResult = await checkoutResponse.json()
+
+    if (checkoutResponse.ok && checkoutResult.checkout) {
       res.status(200).json({ 
-        url: result.payment_link.url
+        url: checkoutResult.checkout.checkout_page_url
       })
     } else {
-      console.error('Square API Error:', result)
       res.status(500).json({ 
-        error: 'Failed to create Square payment link',
-        details: result.errors || 'Unknown error'
+        error: 'Failed to create Square checkout'
       })
     }
 
