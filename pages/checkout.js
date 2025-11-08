@@ -158,7 +158,7 @@ export default function CheckoutPage() {
 
       let apiEndpoint = '/api/create-checkout-session' // Default to Stripe
       
-      if (paymentMethod === 'square-hosted') {
+      if (paymentMethod === 'square') {
         apiEndpoint = '/api/create-square-checkout'
       }
 

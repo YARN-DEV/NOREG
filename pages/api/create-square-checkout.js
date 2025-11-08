@@ -20,14 +20,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No items in cart' })
     }
 
-    // Create a simple Square hosted checkout using the correct API
+    // Use Square's simpler checkout API
     const baseUrl = squareEnvironment === 'production' 
       ? 'https://connect.squareup.com' 
       : 'https://connect.squareupsandbox.com'
 
-    // Create order first
-    const orderData = {
+    // Create direct checkout with items
+    const checkoutData = {
       idempotency_key: require('crypto').randomUUID(),
+      ask_for_shipping_address: false,
+      merchant_support_email: customerInfo.email || 'support@yourstore.com',
+      pre_populated_data: {
+        buyer_email: customerInfo.email || '',
+        buyer_phone_number: customerInfo.phone || ''
+      },
+      redirect_url: `${req.headers.origin}/success`,
       order: {
         location_id: squareLocationId,
         line_items: items.map(item => ({
@@ -41,38 +48,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const orderResponse = await fetch(`${baseUrl}/v2/orders`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${squareAccessToken}`,
-        'Content-Type': 'application/json',
-        'Square-Version': '2023-10-18'
-      },
-      body: JSON.stringify(orderData)
-    })
-
-    if (!orderResponse.ok) {
-      throw new Error('Failed to create order')
-    }
-
-    const orderResult = await orderResponse.json()
-    
-    // Create checkout session
-    const checkoutData = {
-      idempotency_key: require('crypto').randomUUID(),
-      ask_for_shipping_address: false,
-      merchant_support_email: customerInfo.email || 'support@yourstore.com',
-      pre_populated_data: {
-        buyer_email: customerInfo.email || '',
-        buyer_phone_number: customerInfo.phone || ''
-      },
-      redirect_url: `${req.headers.origin}/success`,
-      order: {
-        order: orderResult.order
-      }
-    }
-
-    const checkoutResponse = await fetch(`${baseUrl}/v2/locations/${squareLocationId}/checkouts`, {
+    const response = await fetch(`${baseUrl}/v2/locations/${squareLocationId}/checkouts`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${squareAccessToken}`,
@@ -82,15 +58,15 @@ export default async function handler(req, res) {
       body: JSON.stringify(checkoutData)
     })
 
-    const checkoutResult = await checkoutResponse.json()
+    const result = await response.json()
 
-    if (checkoutResponse.ok && checkoutResult.checkout) {
+    if (response.ok && result.checkout) {
       res.status(200).json({ 
-        url: checkoutResult.checkout.checkout_page_url
+        url: result.checkout.checkout_page_url
       })
     } else {
       res.status(500).json({ 
-        error: 'Failed to create Square checkout'
+        error: 'Square checkout failed'
       })
     }
 
