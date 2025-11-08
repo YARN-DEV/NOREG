@@ -1,4 +1,4 @@
-import { Client, Environment } from 'square'
+import { Client } from 'square'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -33,11 +33,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No items in cart' })
     }
 
-    // Initialize Square client with correct class name
+    // Initialize Square client with environment as string
     console.log('Initializing Square client with environment:', squareEnvironment)
     const client = new Client({
       accessToken: squareAccessToken,
-      environment: squareEnvironment === 'production' ? Environment.Production : Environment.Sandbox
+      environment: squareEnvironment // Use string directly: 'sandbox' or 'production'
     })
 
     // Debug: Check if client APIs are available
