@@ -40,19 +40,27 @@ export default async function handler(req, res) {
     console.log('SquareEnvironment available:', !!SquareEnvironment)
     console.log('SquareEnvironment value:', SquareEnvironment)
     
-    // Use string values directly since SquareEnvironment might be undefined
+    // Use SquareEnvironment enum values since they're working now
     const client = new SquareClient({
       accessToken: squareAccessToken,
-      environment: squareEnvironment === 'production' ? 'production' : 'sandbox'
+      environment: squareEnvironment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
     })
 
     // Debug: Check if client APIs are available
     console.log('Square client created. Available APIs:')
     console.log('All client properties:', Object.keys(client))
+    console.log('Client prototype:', Object.getOwnPropertyNames(Object.getPrototypeOf(client)))
     console.log('checkoutApi available:', !!client.checkoutApi)
     console.log('paymentsApi available:', !!client.paymentsApi)
     console.log('ordersApi available:', !!client.ordersApi)
-    console.log('bookingsApi available:', !!client.bookingsApi)
+    
+    // Try to access APIs through different methods
+    const apis = ['checkoutApi', 'paymentsApi', 'ordersApi']
+    apis.forEach(apiName => {
+      if (client[apiName]) {
+        console.log(`${apiName} methods:`, Object.getOwnPropertyNames(client[apiName]))
+      }
+    })
 
     // Use the simpler payment link approach without creating order first
     const paymentLinkRequest = {
