@@ -9,9 +9,20 @@ export default async function handler(req, res) {
   const squareLocationId = process.env.SQUARE_LOCATION_ID
   const squareEnvironment = process.env.SQUARE_ENVIRONMENT || 'sandbox'
 
+  // Debug logging
+  console.log('Environment Variables Debug:')
+  console.log('SQUARE_ACCESS_TOKEN:', squareAccessToken ? `${squareAccessToken.substring(0, 10)}...` : 'MISSING')
+  console.log('SQUARE_LOCATION_ID:', squareLocationId || 'MISSING')
+  console.log('SQUARE_ENVIRONMENT:', squareEnvironment)
+
   if (!squareAccessToken || !squareLocationId) {
     return res.status(500).json({ 
-      error: 'Square configuration missing. Please add SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID to your environment variables.' 
+      error: 'Square configuration missing. Please add SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID to your environment variables.',
+      debug: {
+        hasAccessToken: !!squareAccessToken,
+        hasLocationId: !!squareLocationId,
+        environment: squareEnvironment
+      }
     })
   }
 
@@ -23,10 +34,16 @@ export default async function handler(req, res) {
     }
 
     // Initialize Square client
+    console.log('Initializing Square client with environment:', squareEnvironment)
     const client = new SquareClient({
       accessToken: squareAccessToken,
       environment: squareEnvironment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
     })
+
+    // Debug: Check if client APIs are available
+    console.log('Square client created. Available APIs:')
+    console.log('checkoutApi available:', !!client.checkoutApi)
+    console.log('checkoutApi.createPaymentLink available:', !!client.checkoutApi?.createPaymentLink)
 
     // Use the simpler payment link approach without creating order first
     const paymentLinkRequest = {
