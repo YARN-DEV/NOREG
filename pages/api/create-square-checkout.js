@@ -1,4 +1,4 @@
-import { Client, Environment } from 'square'
+import { SquareClient, SquareEnvironment } from 'square'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,9 +23,9 @@ export default async function handler(req, res) {
     }
 
     // Initialize Square client
-    const client = new Client({
+    const client = new SquareClient({
       accessToken: squareAccessToken,
-      environment: squareEnvironment === 'production' ? Environment.Production : Environment.Sandbox
+      environment: squareEnvironment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
     })
 
     const { checkoutApi } = client
