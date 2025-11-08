@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       sourceId: paymentToken,
       idempotencyKey: require('crypto').randomUUID(),
       amountMoney: {
-        amount: BigInt(Math.round(total * 100)), // Convert to cents
+        amount: Math.round(total * 100), // Convert to cents
         currency: 'USD'
       },
       locationId: squareLocationId,

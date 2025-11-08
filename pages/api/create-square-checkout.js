@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       name: item.title,
       quantity: item.quantity.toString(),
       basePriceMoney: {
-        amount: BigInt(Math.round(item.price * 100)), // Convert to cents
+        amount: Math.round(item.price * 100), // Convert to cents
         currency: 'USD'
       }
     }))
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
         name: 'Tax',
         quantity: '1',
         basePriceMoney: {
-          amount: BigInt(Math.round(tax * 100)),
+          amount: Math.round(tax * 100),
           currency: 'USD'
         }
       })
