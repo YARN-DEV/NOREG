@@ -42,8 +42,10 @@ export default async function handler(req, res) {
 
     // Debug: Check if client APIs are available
     console.log('Square client created. Available APIs:')
+    console.log('All client properties:', Object.keys(client))
     console.log('checkoutApi available:', !!client.checkoutApi)
-    console.log('checkoutApi.createPaymentLink available:', !!client.checkoutApi?.createPaymentLink)
+    console.log('paymentsApi available:', !!client.paymentsApi)
+    console.log('ordersApi available:', !!client.ordersApi)
 
     // Use the simpler payment link approach without creating order first
     const paymentLinkRequest = {
@@ -70,19 +72,36 @@ export default async function handler(req, res) {
 
     console.log('Creating Square payment link:', JSON.stringify(paymentLinkRequest, null, 2))
 
-    // Create payment link directly
-    const { result } = await client.checkoutApi.createPaymentLink(paymentLinkRequest)
-
-    if (result && result.paymentLink) {
-      res.status(200).json({ 
-        url: result.paymentLink.url,
-        paymentLinkId: result.paymentLink.id 
+    // Try different approaches based on available APIs
+    if (client.checkoutApi && client.checkoutApi.createPaymentLink) {
+      console.log('Using checkoutApi.createPaymentLink')
+      const { result } = await client.checkoutApi.createPaymentLink(paymentLinkRequest)
+      
+      if (result && result.paymentLink) {
+        res.status(200).json({ 
+          url: result.paymentLink.url,
+          paymentLinkId: result.paymentLink.id 
+        })
+      } else {
+        console.error('Square payment link creation failed:', result)
+        res.status(500).json({ 
+          error: 'Failed to create Square payment link',
+          details: result.errors || 'Unknown error'
+        })
+      }
+    } else if (client.paymentsApi) {
+      console.log('checkoutApi not available, trying alternative approach')
+      // Use a simpler hosted checkout approach
+      res.status(500).json({ 
+        error: 'Square Checkout API not available. Please use alternative payment method.',
+        availableApis: Object.keys(client),
+        suggestion: 'Try using Stripe payment instead'
       })
     } else {
-      console.error('Square payment link creation failed:', result)
+      console.error('No suitable Square API available')
       res.status(500).json({ 
-        error: 'Failed to create Square payment link',
-        details: result.errors || 'Unknown error'
+        error: 'Square API not properly configured',
+        availableApis: Object.keys(client)
       })
     }
 
