@@ -272,11 +272,11 @@ export default function CheckoutPage() {
                   <input
                     type="radio"
                     name="paymentMethod"
-                    value="square-hosted"
-                    checked={paymentMethod === 'square-hosted'}
+                    value="square"
+                    checked={paymentMethod === 'square'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
-                  <span>Square (Hosted Checkout)</span>
+                  <span>Square Payment</span>
                 </label>
                 <label className="payment-option">
                   <input
