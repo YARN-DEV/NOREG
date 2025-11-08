@@ -1,4 +1,4 @@
-import { SquareClient, SquareEnvironment } from 'square'
+import { Client, Environment } from 'square'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -33,11 +33,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No items in cart' })
     }
 
-    // Initialize Square client
+    // Initialize Square client with correct class name
     console.log('Initializing Square client with environment:', squareEnvironment)
-    const client = new SquareClient({
+    const client = new Client({
       accessToken: squareAccessToken,
-      environment: squareEnvironment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
+      environment: squareEnvironment === 'production' ? Environment.Production : Environment.Sandbox
     })
 
     // Debug: Check if client APIs are available
@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     console.log('checkoutApi available:', !!client.checkoutApi)
     console.log('paymentsApi available:', !!client.paymentsApi)
     console.log('ordersApi available:', !!client.ordersApi)
+    console.log('bookingsApi available:', !!client.bookingsApi)
 
     // Use the simpler payment link approach without creating order first
     const paymentLinkRequest = {
@@ -72,35 +73,40 @@ export default async function handler(req, res) {
 
     console.log('Creating Square payment link:', JSON.stringify(paymentLinkRequest, null, 2))
 
-    // Try different approaches based on available APIs
-    if (client.checkoutApi && client.checkoutApi.createPaymentLink) {
-      console.log('Using checkoutApi.createPaymentLink')
-      const { result } = await client.checkoutApi.createPaymentLink(paymentLinkRequest)
+    // Try to access the checkout API using the correct method
+    try {
+      const { checkoutApi } = client;
       
-      if (result && result.paymentLink) {
-        res.status(200).json({ 
-          url: result.paymentLink.url,
-          paymentLinkId: result.paymentLink.id 
-        })
+      if (checkoutApi && checkoutApi.createPaymentLink) {
+        console.log('Using checkoutApi.createPaymentLink')
+        const response = await checkoutApi.createPaymentLink(paymentLinkRequest)
+        
+        if (response.result && response.result.paymentLink) {
+          res.status(200).json({ 
+            url: response.result.paymentLink.url,
+            paymentLinkId: response.result.paymentLink.id 
+          })
+        } else {
+          console.error('Square payment link creation failed:', response)
+          res.status(500).json({ 
+            error: 'Failed to create Square payment link',
+            details: response.result?.errors || 'Unknown error'
+          })
+        }
       } else {
-        console.error('Square payment link creation failed:', result)
+        console.error('checkoutApi or createPaymentLink method not available')
         res.status(500).json({ 
-          error: 'Failed to create Square payment link',
-          details: result.errors || 'Unknown error'
+          error: 'Square Checkout API not available. The Square SDK may not be properly configured.',
+          availableApis: Object.keys(client),
+          checkoutApiAvailable: !!checkoutApi,
+          createPaymentLinkAvailable: !!checkoutApi?.createPaymentLink
         })
       }
-    } else if (client.paymentsApi) {
-      console.log('checkoutApi not available, trying alternative approach')
-      // Use a simpler hosted checkout approach
+    } catch (apiError) {
+      console.error('Error accessing Square API:', apiError)
       res.status(500).json({ 
-        error: 'Square Checkout API not available. Please use alternative payment method.',
-        availableApis: Object.keys(client),
-        suggestion: 'Try using Stripe payment instead'
-      })
-    } else {
-      console.error('No suitable Square API available')
-      res.status(500).json({ 
-        error: 'Square API not properly configured',
+        error: 'Error accessing Square API',
+        details: apiError.message,
         availableApis: Object.keys(client)
       })
     }
