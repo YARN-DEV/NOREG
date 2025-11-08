@@ -1,5 +1,5 @@
 const squareConnect = require('square')
-const { Client, Environment } = squareConnect
+const { SquareClient, SquareEnvironment } = squareConnect
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -38,9 +38,9 @@ export default async function handler(req, res) {
     console.log('Initializing Square client with environment:', squareEnvironment)
     console.log('Available Square exports:', Object.keys(squareConnect))
     
-    const client = new Client({
+    const client = new SquareClient({
       accessToken: squareAccessToken,
-      environment: squareEnvironment === 'production' ? Environment.Production : Environment.Sandbox
+      environment: squareEnvironment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
     })
 
     // Debug: Check if client APIs are available
