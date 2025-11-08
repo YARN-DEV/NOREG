@@ -1,4 +1,4 @@
-const SquareConnect = require('squareup')
+import { Client, Environment } from 'square'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,50 +27,39 @@ export default async function handler(req, res) {
     }
 
     // Initialize Square client
-    const defaultClient = SquareConnect.ApiClient.instance
-    const oauth2 = defaultClient.authentications['oauth2']
-    oauth2.accessToken = squareAccessToken
-    
-    if (squareEnvironment === 'sandbox') {
-      defaultClient.basePath = 'https://connect.squareupsandbox.com'
-    }
+    const client = new Client({
+      accessToken: squareAccessToken,
+      environment: squareEnvironment === 'production' ? Environment.Production : Environment.Sandbox
+    })
 
-    const paymentsApi = new SquareConnect.PaymentsApi()
+    const { paymentsApi } = client
 
     // Create payment request
     const paymentRequest = {
-      source_id: paymentToken,
-      idempotency_key: require('crypto').randomUUID(),
-      amount_money: {
-        amount: Math.round(total * 100), // Convert to cents
+      sourceId: paymentToken,
+      idempotencyKey: require('crypto').randomUUID(),
+      amountMoney: {
+        amount: BigInt(Math.round(total * 100)), // Convert to cents
         currency: 'USD'
       },
-      location_id: squareLocationId,
+      locationId: squareLocationId,
       note: `Ebook purchase: ${items.map(item => item.title).join(', ')}`,
-      buyer_email_address: customerInfo.email
+      buyerEmailAddress: customerInfo.email
     }
 
     console.log('Processing Square Web Payment:', JSON.stringify(paymentRequest, null, 2))
 
     // Process payment
-    const result = await new Promise((resolve, reject) => {
-      paymentsApi.createPayment(paymentRequest, (error, data, response) => {
-        if (error) {
-          reject(error)
-        } else {
-          resolve({ data, response })
-        }
-      })
-    })
+    const { result } = await paymentsApi.createPayment(paymentRequest)
 
-    if (result.data && result.data.payment) {
+    if (result && result.payment) {
       // Payment successful
       res.status(200).json({
         success: true,
-        paymentId: result.data.payment.id,
-        status: result.data.payment.status,
-        receiptUrl: result.data.payment.receipt_url,
-        totalMoney: result.data.payment.total_money
+        paymentId: result.payment.id,
+        status: result.payment.status,
+        receiptUrl: result.payment.receiptUrl,
+        totalMoney: result.payment.totalMoney
       })
     } else {
       console.error('Square payment failed:', result)

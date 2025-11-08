@@ -1,4 +1,4 @@
-const SquareConnect = require('squareup')
+import { Client, Environment } from 'square'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,23 +23,19 @@ export default async function handler(req, res) {
     }
 
     // Initialize Square client
-    const defaultClient = SquareConnect.ApiClient.instance
-    const oauth2 = defaultClient.authentications['oauth2']
-    oauth2.accessToken = squareAccessToken
-    
-    if (squareEnvironment === 'sandbox') {
-      defaultClient.basePath = 'https://connect.squareupsandbox.com'
-    }
+    const client = new Client({
+      accessToken: squareAccessToken,
+      environment: squareEnvironment === 'production' ? Environment.Production : Environment.Sandbox
+    })
 
-    const checkoutApi = new SquareConnect.CheckoutApi()
+    const { checkoutApi } = client
 
     // Create line items for Square (amounts in cents)
     const orderLineItems = items.map(item => ({
       name: item.title,
       quantity: item.quantity.toString(),
-      item_type: 'ITEM_VARIATION',
-      base_price_money: {
-        amount: Math.round(item.price * 100), // Convert to cents
+      basePriceMoney: {
+        amount: BigInt(Math.round(item.price * 100)), // Convert to cents
         currency: 'USD'
       }
     }))
@@ -49,9 +45,8 @@ export default async function handler(req, res) {
       orderLineItems.push({
         name: 'Tax',
         quantity: '1',
-        item_type: 'ITEM_VARIATION',
-        base_price_money: {
-          amount: Math.round(tax * 100),
+        basePriceMoney: {
+          amount: BigInt(Math.round(tax * 100)),
           currency: 'USD'
         }
       })
@@ -59,35 +54,27 @@ export default async function handler(req, res) {
 
     // Create checkout request
     const checkoutRequest = {
-      idempotency_key: require('crypto').randomUUID(),
+      idempotencyKey: require('crypto').randomUUID(),
       order: {
-        location_id: squareLocationId,
-        line_items: orderLineItems
+        locationId: squareLocationId,
+        lineItems: orderLineItems
       },
-      ask_for_shipping_address: false,
-      merchant_support_email: customerInfo.email || 'support@yourstore.com',
-      pre_populate_buyer_email: customerInfo.email || '',
-      redirect_url: `${req.headers.origin}/success`,
+      askForShippingAddress: false,
+      merchantSupportEmail: customerInfo.email || 'support@yourstore.com',
+      prePopulateBuyerEmail: customerInfo.email || '',
+      redirectUrl: `${req.headers.origin}/success`,
       note: `Order for ${customerInfo.firstName} ${customerInfo.lastName}`
     }
 
     console.log('Creating Square checkout:', JSON.stringify(checkoutRequest, null, 2))
 
     // Create checkout session
-    const result = await new Promise((resolve, reject) => {
-      checkoutApi.createCheckout(squareLocationId, checkoutRequest, (error, data, response) => {
-        if (error) {
-          reject(error)
-        } else {
-          resolve({ data, response })
-        }
-      })
-    })
+    const { result } = await checkoutApi.createCheckout(squareLocationId, checkoutRequest)
 
-    if (result.data && result.data.checkout) {
+    if (result && result.checkout) {
       res.status(200).json({ 
-        url: result.data.checkout.checkout_page_url,
-        checkoutId: result.data.checkout.id 
+        url: result.checkout.checkoutPageUrl,
+        checkoutId: result.checkout.id 
       })
     } else {
       console.error('Square checkout creation failed:', result)
