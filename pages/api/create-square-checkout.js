@@ -51,16 +51,61 @@ export default async function handler(req, res) {
       }
     }
 
-    // Use the correct Square API call
-    const { result } = await client.checkoutApi.createCheckout(squareLocationId, checkoutRequest)
+    // Create order first, then payment link
+    const orderRequest = {
+      idempotencyKey: require('crypto').randomUUID(),
+      order: {
+        locationId: squareLocationId,
+        lineItems: items.map(item => ({
+          name: item.title,
+          quantity: item.quantity.toString(),
+          basePriceMoney: {
+            amount: Math.round(item.price * 100),
+            currency: 'USD'
+          }
+        }))
+      }
+    }
 
-    if (result && result.checkout) {
+    // Create order
+    const { result: orderResult } = await client.ordersApi.createOrder(orderRequest)
+    
+    if (!orderResult || !orderResult.order) {
+      throw new Error('Failed to create order')
+    }
+
+    // Create payment link
+    const paymentLinkRequest = {
+      idempotencyKey: require('crypto').randomUUID(),
+      quickPay: {
+        name: 'eBook Store Purchase',
+        priceMoney: {
+          amount: Math.round(total * 100),
+          currency: 'USD'
+        },
+        locationId: squareLocationId
+      },
+      checkoutOptions: {
+        askForShippingAddress: false,
+        allowTipping: false,
+        redirectUrl: `${req.headers.origin}/success`,
+        merchantSupportEmail: customerInfo.email || 'support@yourstore.com'
+      },
+      prePopulatedData: {
+        buyerEmail: customerInfo.email || '',
+        buyerPhoneNumber: customerInfo.phone || ''
+      }
+    }
+
+    const { result } = await client.checkoutApi.createPaymentLink(paymentLinkRequest)
+
+    if (result && result.paymentLink) {
       res.status(200).json({ 
-        url: result.checkout.checkoutPageUrl
+        url: result.paymentLink.url
       })
     } else {
       res.status(500).json({ 
-        error: 'Failed to create Square checkout',
+        error: 'Failed to create Square payment link',
         details: result?.errors || 'Unknown error'
       })
     }
