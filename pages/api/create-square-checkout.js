@@ -36,11 +36,14 @@ export default async function handler(req, res) {
 
     // Initialize Square client with proper environment
     console.log('Initializing Square client with environment:', squareEnvironment)
-    console.log('Available Square exports:', Object.keys(squareConnect))
+    console.log('SquareClient available:', !!SquareClient)
+    console.log('SquareEnvironment available:', !!SquareEnvironment)
+    console.log('SquareEnvironment value:', SquareEnvironment)
     
+    // Use string values directly since SquareEnvironment might be undefined
     const client = new SquareClient({
       accessToken: squareAccessToken,
-      environment: squareEnvironment === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
+      environment: squareEnvironment === 'production' ? 'production' : 'sandbox'
     })
 
     // Debug: Check if client APIs are available
