@@ -11,8 +11,11 @@ export default function SuccessPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Always clear the cart on success page
-    clearCart()
+    // Clear the cart on successful payment
+    if (clearCart) {
+      clearCart()
+      console.log('Cart cleared on success page')
+    }
     setLoading(false)
   }, [clearCart])
 
@@ -35,8 +38,8 @@ export default function SuccessPage() {
       <div className="success-container">
         <div className="success-content">
           <div className="success-icon">✅</div>
-          <h1>Payment Successful!</h1>
-          <p>Thank you for your purchase. Your ebooks will be available for download shortly.</p>
+          <h1>Purchase Complete!</h1>
+          <p>Thank you for your purchase via Gumroad! Your ebooks will be delivered to your email shortly.</p>
           
           {loading && <p>Loading order details...</p>}
           

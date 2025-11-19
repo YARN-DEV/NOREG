@@ -12,7 +12,6 @@ export function CartProvider({ children }) {
       if (raw) {
         const parsedItems = JSON.parse(raw)
         setItems(parsedItems)
-        console.log('Loaded cart from localStorage:', parsedItems)
       }
     } catch (e) { 
       console.error('Error loading cart:', e)
@@ -25,7 +24,6 @@ export function CartProvider({ children }) {
     if (isLoaded) {
       try { 
         localStorage.setItem('cart', JSON.stringify(items))
-        console.log('Saved cart to localStorage:', items)
       } catch (e) {
         console.error('Error saving cart:', e)
       }

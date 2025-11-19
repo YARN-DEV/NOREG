@@ -1,7 +1,6 @@
 import Layout from './Layout'
 import { useCart } from '../context/CartContext'
 import { useState } from 'react'
-import CartDebug from './CartDebug'
 
 export default function CartPage() {
   const { items, removeItem, clearCart, isLoaded } = useCart()
@@ -9,28 +8,9 @@ export default function CartPage() {
 
   const total = items.reduce((s, i) => s + i.price * (i.quantity || 1), 0)
 
-  // Debug: Log cart items
-  console.log('Cart items:', items, 'Cart loaded:', isLoaded)
-
-  async function checkout() {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items })
-      })
-      const data = await res.json()
-      if (data.url) window.location = data.url
-      else alert('Checkout failed: ' + (data.error || 'unknown'))
-    } catch (e) { alert('Checkout error') }
-    setLoading(false)
-  }
-
   if (!isLoaded) {
     return (
       <Layout>
-        <CartDebug />
         <h1>Your Cart</h1>
         <p>Loading cart...</p>
       </Layout>
@@ -39,7 +19,6 @@ export default function CartPage() {
 
   return (
     <Layout>
-      <CartDebug />
       <h1>Your Cart</h1>
       {items.length === 0 && <p>Your cart is empty.</p>}
       {items.map(i => (

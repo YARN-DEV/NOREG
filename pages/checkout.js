@@ -96,7 +96,13 @@ export default function CheckoutPage() {
             <h2>Customer Information</h2>
             
             <div className="payment-method">
-              <h3>Payment Method: Square Payment</h3>
+              <h3>Secure Payment via Gumroad</h3>
+              <div className="payment-options">
+                <span className="payment-badge">💳 All Credit Cards</span>
+                <span className="payment-badge">🏦 PayPal</span>
+                <span className="payment-badge">📱 Apple Pay</span>
+                <span className="payment-badge">� Secure Checkout</span>
+              </div>
             </div>
 
             <input
@@ -127,7 +133,7 @@ export default function CheckoutPage() {
             />
 
             <button type="submit" disabled={loading}>
-              {loading ? 'Processing...' : `Pay $${total.toFixed(2)} with Square`}
+              {loading ? 'Redirecting to Gumroad...' : `Complete Purchase - $${total.toFixed(2)}`}
             </button>
           </form>
         </div>
@@ -172,6 +178,22 @@ export default function CheckoutPage() {
           padding: 1rem;
           border-radius: 4px;
           margin-bottom: 1rem;
+        }
+
+        .payment-options {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+          margin-top: 0.5rem;
+        }
+
+        .payment-badge {
+          background: #fff;
+          border: 1px solid #ddd;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.85rem;
+          display: inline-block;
         }
 
         input {

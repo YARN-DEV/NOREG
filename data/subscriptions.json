@@ -1,0 +1,30 @@
+[
+  {
+    "id": "monthly-premium",
+    "name": "Premium Monthly",
+    "price": 50,
+    "interval": "monthly",
+    "description": "Access to all premium ebooks and exclusive content",
+    "features": [
+      "Unlimited ebook downloads",
+      "Exclusive premium content",
+      "Early access to new releases",
+      "Member-only discounts"
+    ]
+  },
+  {
+    "id": "yearly-premium",
+    "name": "Premium Yearly",
+    "price": 500,
+    "interval": "yearly",
+    "description": "Best value - Save $100 per year on premium access",
+    "originalPrice": 600,
+    "features": [
+      "Unlimited ebook downloads",
+      "Exclusive premium content", 
+      "Early access to new releases",
+      "Member-only discounts",
+      "Save $100 compared to monthly"
+    ]
+  }
+]

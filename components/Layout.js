@@ -15,6 +15,8 @@ export default function Layout({ children }) {
         <div className="container">
           <Link href="/" className="brand">eBook Store</Link>
           <nav>
+            <Link href="/subscriptions">Premium Plans</Link>
+            <Link href="/register">Register</Link>
             <Link href="/cart">Cart ({count})</Link>
           </nav>
         </div>
